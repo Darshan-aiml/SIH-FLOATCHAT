@@ -1,0 +1,687 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ARGO Ocean Data Analysis Report</title>
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <style>
+        @media print {
+            .no-print { display: none !important; }
+            .print-break { page-break-before: always; }
+            body { background: white !important; }
+        }
+        
+        .report-section {
+            margin-bottom: 2rem;
+            page-break-inside: avoid;
+        }
+        
+        .chart-placeholder {
+            min-height: 400px;
+            background: #f8fafc;
+            border: 2px dashed #cbd5e1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 8px;
+        }
+    </style>
+</head>
+<body class="bg-gray-50 min-h-screen">
+    <!-- Header -->
+    <header class="bg-gradient-to-r from-purple-600 to-pink-600 text-white shadow-lg no-print">
+        <div class="max-w-7xl mx-auto px-6 py-6">
+            <div class="flex items-center justify-between">
+                <div>
+                    <h1 class="text-3xl font-bold flex items-center">
+                        <i class="fas fa-file-alt mr-3"></i>
+                        ARGO Ocean Data Analysis Report
+                    </h1>
+                    <p class="text-purple-100 mt-2">Comprehensive oceanographic data analysis and insights</p>
+                </div>
+                <div class="flex space-x-3">
+                    <button id="printReportBtn" class="px-4 py-2 bg-white/20 hover:bg-white/30 rounded-lg transition-colors flex items-center space-x-2">
+                        <i class="fas fa-print"></i>
+                        <span>Print</span>
+                    </button>
+                    <button id="downloadPdfBtn" class="px-4 py-2 bg-white/20 hover:bg-white/30 rounded-lg transition-colors flex items-center space-x-2">
+                        <i class="fas fa-download"></i>
+                        <span>Download PDF</span>
+                    </button>
+                    <button id="backToAppBtn" class="px-4 py-2 bg-white/20 hover:bg-white/30 rounded-lg transition-colors flex items-center space-x-2">
+                        <i class="fas fa-arrow-left"></i>
+                        <span>Back to App</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- Report Content -->
+    <main class="max-w-7xl mx-auto px-6 py-8">
+        <div class="bg-white rounded-xl shadow-lg overflow-hidden">
+            
+            <!-- Report Header Info -->
+            <div class="bg-gradient-to-r from-blue-50 to-purple-50 p-8 border-b">
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    <div>
+                        <h3 class="font-semibold text-gray-700 mb-2">Report Generated</h3>
+                        <p id="reportTimestamp" class="text-lg font-bold text-blue-600">Loading...</p>
+                    </div>
+                    <div>
+                        <h3 class="font-semibold text-gray-700 mb-2">Analysis Period</h3>
+                        <p class="text-lg font-bold text-purple-600">Last 6 Months</p>
+                    </div>
+                    <div>
+                        <h3 class="font-semibold text-gray-700 mb-2">Data Source</h3>
+                        <p class="text-lg font-bold text-teal-600">ARGO Float Network</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="p-8">
+                <!-- Executive Summary -->
+                <section class="report-section">
+                    <h2 class="text-2xl font-bold text-gray-800 mb-6 flex items-center">
+                        <i class="fas fa-chart-line text-blue-500 mr-3"></i>
+                        Executive Summary
+                    </h2>
+                    <div class="bg-blue-50 border-l-4 border-blue-500 p-6 rounded-r-lg">
+                        <div id="executiveSummary" class="text-gray-700 leading-relaxed">
+                            Loading executive summary...
+                        </div>
+                    </div>
+                </section>
+
+                <!-- Conversation Analysis -->
+                <section class="report-section print-break">
+                    <h2 class="text-2xl font-bold text-gray-800 mb-6 flex items-center">
+                        <i class="fas fa-comments text-green-500 mr-3"></i>
+                        Conversation Analysis
+                    </h2>
+                    <div id="conversationAnalysis" class="space-y-4">
+                        Loading conversation data...
+                    </div>
+                </section>
+
+                <!-- Parameters Analyzed -->
+                <section class="report-section">
+                    <h2 class="text-2xl font-bold text-gray-800 mb-6 flex items-center">
+                        <i class="fas fa-flask text-purple-500 mr-3"></i>
+                        Parameters Analyzed
+                    </h2>
+                    <div id="parametersGrid" class="grid grid-cols-2 md:grid-cols-4 gap-4">
+                        Loading parameters...
+                    </div>
+                </section>
+
+                <!-- Float Network Status -->
+                <section class="report-section">
+                    <h2 class="text-2xl font-bold text-gray-800 mb-6 flex items-center">
+                        <i class="fas fa-anchor text-teal-500 mr-3"></i>
+                        ARGO Float Network Status
+                    </h2>
+                    <div id="floatNetworkStats" class="grid grid-cols-2 md:grid-cols-4 gap-6">
+                        Loading network status...
+                    </div>
+                </section>
+
+                <!-- Data Insights -->
+                <section class="report-section print-break">
+                    <h2 class="text-2xl font-bold text-gray-800 mb-6 flex items-center">
+                        <i class="fas fa-lightbulb text-yellow-500 mr-3"></i>
+                        Key Data Insights
+                    </h2>
+                    <div id="dataInsights" class="space-y-6">
+                        Loading insights...
+                    </div>
+                </section>
+
+                <!-- Current Visualization -->
+                <section class="report-section">
+                    <h2 class="text-2xl font-bold text-gray-800 mb-6 flex items-center">
+                        <i class="fas fa-chart-area text-indigo-500 mr-3"></i>
+                        Current Visualization
+                    </h2>
+                    <div class="bg-gray-50 p-6 rounded-lg">
+                        <div id="currentChartInfo" class="mb-4">
+                            <h3 class="text-lg font-semibold text-gray-700">Loading chart information...</h3>
+                        </div>
+                        <div id="chartVisualization" class="chart-placeholder">
+                            <div class="text-center text-gray-500">
+                                <i class="fas fa-chart-bar text-4xl mb-2"></i>
+                                <p>Chart visualization will be loaded here</p>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- Regional Analysis -->
+                <section class="report-section print-break">
+                    <h2 class="text-2xl font-bold text-gray-800 mb-6 flex items-center">
+                        <i class="fas fa-globe text-blue-500 mr-3"></i>
+                        Regional Analysis
+                    </h2>
+                    <div id="regionalAnalysis" class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        Loading regional data...
+                    </div>
+                </section>
+
+                <!-- Technical Details -->
+                <section class="report-section">
+                    <h2 class="text-2xl font-bold text-gray-800 mb-6 flex items-center">
+                        <i class="fas fa-cog text-gray-500 mr-3"></i>
+                        Technical Details
+                    </h2>
+                    <div class="bg-gray-50 p-6 rounded-lg">
+                        <div id="technicalDetails" class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            Loading technical information...
+                        </div>
+                    </div>
+                </section>
+
+                <!-- Footer -->
+                <footer class="mt-12 pt-8 border-t border-gray-200 text-center text-gray-500">
+                    <div class="flex items-center justify-center space-x-4 mb-4">
+                        <div class="w-8 h-8 bg-gradient-to-r from-blue-500 to-teal-500 rounded-lg flex items-center justify-center">
+                            <i class="fas fa-water text-white"></i>
+                        </div>
+                        <span class="text-lg font-semibold">ARGO Ocean Assistant</span>
+                    </div>
+                    <p class="text-sm">
+                        Generated on <span id="footerTimestamp">Loading...</span> | 
+                        AI-Powered Oceanographic Data Explorer v1.0
+                    </p>
+                    <p class="text-xs mt-2">
+                        This report is based on ARGO float network data from the Indian Ocean region.
+                    </p>
+                </footer>
+            </div>
+        </div>
+    </main>
+
+    <!-- Loading Overlay -->
+    <div id="loadingOverlay" class="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50">
+        <div class="bg-white rounded-xl p-8 shadow-2xl">
+            <div class="flex items-center space-x-4">
+                <div class="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-500"></div>
+                <div>
+                    <h3 class="text-lg font-semibold text-gray-800">Generating Report</h3>
+                    <p class="text-sm text-gray-600">Analyzing conversation data and creating visualizations...</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Report functionality
+        class ReportGenerator {
+            constructor() {
+                this.reportData = null;
+                this.init();
+            }
+
+            init() {
+                // Get data from URL parameters or localStorage
+                this.loadReportData();
+                this.setupEventListeners();
+                this.generateReport();
+            }
+
+            setupEventListeners() {
+                document.getElementById('printReportBtn').addEventListener('click', () => {
+                    window.print();
+                });
+
+                document.getElementById('downloadPdfBtn').addEventListener('click', () => {
+                    this.downloadAsPDF();
+                });
+
+                document.getElementById('backToAppBtn').addEventListener('click', () => {
+                    window.close();
+                });
+            }
+
+            loadReportData() {
+                // Try to get data from localStorage (passed from main app)
+                const storedData = localStorage.getItem('argoReportData');
+                if (storedData) {
+                    this.reportData = JSON.parse(storedData);
+                } else {
+                    // Fallback to sample data
+                    this.reportData = this.generateSampleData();
+                }
+            }
+
+            generateSampleData() {
+                return {
+                    timestamp: new Date().toISOString(),
+                    chatHistory: [
+                        { type: 'user', message: 'Show me temperature data', timestamp: new Date() },
+                        { type: 'bot', message: 'Here is the temperature analysis...', chartType: 'temperature', timestamp: new Date() }
+                    ],
+                    floatData: Array.from({length: 50}, (_, i) => ({
+                        id: `ARGO_${4900000 + i}`,
+                        status: Math.random() > 0.15 ? 'active' : 'inactive',
+                        floatType: Math.random() > 0.7 ? 'BGC' : 'Core',
+                        region: ['Arabian Sea', 'Bay of Bengal', 'Central Indian Ocean'][Math.floor(Math.random() * 3)],
+                        temperature: 15 + Math.random() * 15,
+                        salinity: 34 + Math.random() * 2
+                    })),
+                    currentChart: 'temperature'
+                };
+            }
+
+            async generateReport() {
+                const loadingOverlay = document.getElementById('loadingOverlay');
+                
+                try {
+                    // Set timestamps
+                    const timestamp = new Date(this.reportData.timestamp).toLocaleString();
+                    document.getElementById('reportTimestamp').textContent = timestamp;
+                    document.getElementById('footerTimestamp').textContent = timestamp;
+
+                    // Generate executive summary
+                    this.generateExecutiveSummary();
+
+                    // Generate conversation analysis
+                    this.generateConversationAnalysis();
+
+                    // Generate parameters grid
+                    this.generateParametersGrid();
+
+                    // Generate float network stats
+                    this.generateFloatNetworkStats();
+
+                    // Generate data insights
+                    this.generateDataInsights();
+
+                    // Generate current chart info
+                    this.generateCurrentChartInfo();
+
+                    // Generate regional analysis
+                    this.generateRegionalAnalysis();
+
+                    // Generate technical details
+                    this.generateTechnicalDetails();
+
+                    // Hide loading overlay
+                    setTimeout(() => {
+                        loadingOverlay.style.display = 'none';
+                    }, 1500);
+
+                } catch (error) {
+                    console.error('Error generating report:', error);
+                    loadingOverlay.innerHTML = `
+                        <div class="bg-white rounded-xl p-8 shadow-2xl text-center">
+                            <i class="fas fa-exclamation-triangle text-red-500 text-4xl mb-4"></i>
+                            <h3 class="text-lg font-semibold text-gray-800 mb-2">Error Generating Report</h3>
+                            <p class="text-sm text-gray-600">Please try again or return to the main application.</p>
+                            <button onclick="window.close()" class="mt-4 px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600">
+                                Close Window
+                            </button>
+                        </div>
+                    `;
+                }
+            }
+
+            generateExecutiveSummary() {
+                const summary = `
+                    This comprehensive report analyzes ${this.reportData.chatHistory.length} conversation exchanges 
+                    covering oceanographic data from the Indian Ocean ARGO float network. The analysis includes 
+                    ${this.analyzeRequestedParameters().length} different oceanographic parameters across 
+                    ${this.reportData.floatData.length} deployed floats. Key findings include temperature variations 
+                    ranging from surface to deep water, salinity patterns influenced by monsoon systems, and 
+                    biogeochemical measurements from specialized BGC-ARGO floats providing insights into ocean 
+                    productivity and chemistry.
+                `;
+                document.getElementById('executiveSummary').innerHTML = summary;
+            }
+
+            generateConversationAnalysis() {
+                const container = document.getElementById('conversationAnalysis');
+                const conversations = this.reportData.chatHistory.map((entry, index) => `
+                    <div class="flex items-start space-x-4 p-4 rounded-lg ${entry.type === 'user' ? 'bg-blue-50' : 'bg-green-50'}">
+                        <div class="w-10 h-10 rounded-full flex items-center justify-center ${entry.type === 'user' ? 'bg-blue-500' : 'bg-green-500'}">
+                            <i class="fas fa-${entry.type === 'user' ? 'user' : 'robot'} text-white"></i>
+                        </div>
+                        <div class="flex-1">
+                            <div class="flex items-center space-x-2 mb-2">
+                                <span class="font-semibold ${entry.type === 'user' ? 'text-blue-700' : 'text-green-700'}">
+                                    ${entry.type === 'user' ? 'User Query' : 'AI Response'}
+                                </span>
+                                <span class="text-xs text-gray-500">
+                                    ${new Date(entry.timestamp).toLocaleTimeString()}
+                                </span>
+                            </div>
+                            <p class="text-gray-700 mb-2">${entry.message}</p>
+                            ${entry.chartType ? `
+                                <div class="inline-flex items-center px-2 py-1 bg-purple-100 text-purple-700 rounded-full text-xs">
+                                    <i class="fas fa-chart-bar mr-1"></i>
+                                    Generated: ${entry.chartType} visualization
+                                </div>
+                            ` : ''}
+                        </div>
+                    </div>
+                `).join('');
+                
+                container.innerHTML = conversations;
+            }
+
+            generateParametersGrid() {
+                const parameters = this.analyzeRequestedParameters();
+                const container = document.getElementById('parametersGrid');
+                
+                const parameterCards = parameters.map(param => `
+                    <div class="bg-white border-2 border-gray-200 rounded-xl p-6 text-center hover:border-blue-300 transition-colors">
+                        <div class="text-3xl mb-3">${this.getParameterIcon(param)}</div>
+                        <h3 class="font-bold text-gray-800 mb-2">${param}</h3>
+                        <p class="text-sm text-gray-600">${this.getParameterDescription(param)}</p>
+                    </div>
+                `).join('');
+                
+                container.innerHTML = parameterCards;
+            }
+
+            generateFloatNetworkStats() {
+                const stats = this.generateFloatSummary();
+                const container = document.getElementById('floatNetworkStats');
+                
+                container.innerHTML = `
+                    <div class="bg-green-50 border-2 border-green-200 rounded-xl p-6 text-center">
+                        <div class="text-3xl font-bold text-green-600 mb-2">${stats.active}</div>
+                        <div class="text-sm font-semibold text-green-700">Active Floats</div>
+                        <div class="text-xs text-green-600 mt-1">Currently operational</div>
+                    </div>
+                    <div class="bg-gray-50 border-2 border-gray-200 rounded-xl p-6 text-center">
+                        <div class="text-3xl font-bold text-gray-600 mb-2">${stats.inactive}</div>
+                        <div class="text-sm font-semibold text-gray-700">Inactive Floats</div>
+                        <div class="text-xs text-gray-600 mt-1">End of mission</div>
+                    </div>
+                    <div class="bg-blue-50 border-2 border-blue-200 rounded-xl p-6 text-center">
+                        <div class="text-3xl font-bold text-blue-600 mb-2">${stats.bgc}</div>
+                        <div class="text-sm font-semibold text-blue-700">BGC Floats</div>
+                        <div class="text-xs text-blue-600 mt-1">Biogeochemical sensors</div>
+                    </div>
+                    <div class="bg-purple-50 border-2 border-purple-200 rounded-xl p-6 text-center">
+                        <div class="text-3xl font-bold text-purple-600 mb-2">${stats.regions}</div>
+                        <div class="text-sm font-semibold text-purple-700">Ocean Regions</div>
+                        <div class="text-xs text-purple-600 mt-1">Geographic coverage</div>
+                    </div>
+                `;
+            }
+
+            generateDataInsights() {
+                const insights = this.generateInsights();
+                const container = document.getElementById('dataInsights');
+                
+                const insightCards = insights.map(insight => `
+                    <div class="bg-gradient-to-r from-yellow-50 to-orange-50 border-l-4 border-yellow-400 p-6 rounded-r-xl">
+                        <div class="flex items-start space-x-4">
+                            <div class="w-12 h-12 bg-yellow-400 rounded-full flex items-center justify-center flex-shrink-0">
+                                <i class="fas fa-lightbulb text-white text-lg"></i>
+                            </div>
+                            <div class="flex-1">
+                                <h3 class="text-lg font-bold text-yellow-800 mb-2">${insight.title}</h3>
+                                <p class="text-yellow-700 mb-3">${insight.description}</p>
+                                <div class="flex items-center text-sm text-yellow-600">
+                                    <i class="fas fa-chart-bar mr-2"></i>
+                                    Based on ${insight.dataPoints} data points
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                `).join('');
+                
+                container.innerHTML = insightCards;
+            }
+
+            generateCurrentChartInfo() {
+                const chartInfo = document.getElementById('currentChartInfo');
+                const chartContainer = document.getElementById('chartVisualization');
+                
+                chartInfo.innerHTML = `
+                    <h3 class="text-lg font-semibold text-gray-700 mb-2">
+                        Active Visualization: ${this.reportData.currentChart.charAt(0).toUpperCase() + this.reportData.currentChart.slice(1)}
+                    </h3>
+                    <p class="text-gray-600">
+                        This chart represents the most recently viewed oceanographic parameter visualization 
+                        from the conversation session.
+                    </p>
+                `;
+                
+                // Placeholder for chart - in a real implementation, you'd capture the actual chart
+                chartContainer.innerHTML = `
+                    <div class="flex items-center justify-center h-full">
+                        <div class="text-center">
+                            <i class="fas fa-chart-${this.reportData.currentChart === 'heatmap' ? 'area' : 'line'} text-6xl text-gray-400 mb-4"></i>
+                            <h4 class="text-xl font-semibold text-gray-600 mb-2">
+                                ${this.reportData.currentChart.charAt(0).toUpperCase() + this.reportData.currentChart.slice(1)} Visualization
+                            </h4>
+                            <p class="text-gray-500">Chart snapshot would be displayed here in the full implementation</p>
+                        </div>
+                    </div>
+                `;
+            }
+
+            generateRegionalAnalysis() {
+                const container = document.getElementById('regionalAnalysis');
+                const regions = this.getRegionalStats();
+                
+                const regionCards = Object.entries(regions).map(([region, stats]) => `
+                    <div class="bg-white border border-gray-200 rounded-xl p-6">
+                        <h3 class="text-lg font-bold text-gray-800 mb-4 flex items-center">
+                            <i class="fas fa-map-marker-alt text-blue-500 mr-2"></i>
+                            ${region}
+                        </h3>
+                        <div class="space-y-3">
+                            <div class="flex justify-between">
+                                <span class="text-gray-600">Active Floats:</span>
+                                <span class="font-semibold">${stats.floats}</span>
+                            </div>
+                            <div class="flex justify-between">
+                                <span class="text-gray-600">Avg Temperature:</span>
+                                <span class="font-semibold">${stats.avgTemp.toFixed(1)}°C</span>
+                            </div>
+                            <div class="flex justify-between">
+                                <span class="text-gray-600">Avg Salinity:</span>
+                                <span class="font-semibold">${stats.avgSalinity.toFixed(2)} PSU</span>
+                            </div>
+                        </div>
+                    </div>
+                `).join('');
+                
+                container.innerHTML = regionCards;
+            }
+
+            generateTechnicalDetails() {
+                const container = document.getElementById('technicalDetails');
+                
+                container.innerHTML = `
+                    <div>
+                        <h3 class="font-semibold text-gray-700 mb-4">Data Sources</h3>
+                        <ul class="space-y-2 text-sm text-gray-600">
+                            <li><i class="fas fa-check text-green-500 mr-2"></i>ARGO Float Network - Indian Ocean</li>
+                            <li><i class="fas fa-check text-green-500 mr-2"></i>Real-time and delayed-mode quality controlled data</li>
+                            <li><i class="fas fa-check text-green-500 mr-2"></i>BGC-ARGO biogeochemical measurements</li>
+                            <li><i class="fas fa-check text-green-500 mr-2"></i>Global Data Assembly Centers (GDACs)</li>
+                        </ul>
+                    </div>
+                    <div>
+                        <h3 class="font-semibold text-gray-700 mb-4">Analysis Parameters</h3>
+                        <ul class="space-y-2 text-sm text-gray-600">
+                            <li><i class="fas fa-info text-blue-500 mr-2"></i>Report Generated: ${new Date().toISOString()}</li>
+                            <li><i class="fas fa-info text-blue-500 mr-2"></i>Conversation Exchanges: ${this.reportData.chatHistory.length}</li>
+                            <li><i class="fas fa-info text-blue-500 mr-2"></i>Total Floats Analyzed: ${this.reportData.floatData.length}</li>
+                            <li><i class="fas fa-info text-blue-500 mr-2"></i>System Version: ARGO Assistant v1.0</li>
+                        </ul>
+                    </div>
+                `;
+            }
+
+            // Helper methods
+            analyzeRequestedParameters() {
+                const parameters = new Set();
+                this.reportData.chatHistory.forEach(entry => {
+                    const message = entry.message.toLowerCase();
+                    if (message.includes('temperature')) parameters.add('Temperature');
+                    if (message.includes('salinity')) parameters.add('Salinity');
+                    if (message.includes('pressure')) parameters.add('Pressure');
+                    if (message.includes('chlorophyll')) parameters.add('Chlorophyll-a');
+                    if (message.includes('oxygen')) parameters.add('Dissolved Oxygen');
+                    if (message.includes('nitrate')) parameters.add('Nitrate');
+                    if (message.includes('ph')) parameters.add('pH');
+                    if (message.includes('heatmap')) parameters.add('Temperature Heatmap');
+                });
+                return Array.from(parameters);
+            }
+
+            generateFloatSummary() {
+                const active = this.reportData.floatData.filter(f => f.status === 'active').length;
+                const inactive = this.reportData.floatData.filter(f => f.status === 'inactive').length;
+                const bgc = this.reportData.floatData.filter(f => f.floatType === 'BGC').length;
+                const regions = new Set(this.reportData.floatData.map(f => f.region)).size;
+                return { active, inactive, bgc, regions };
+            }
+
+            generateInsights() {
+                const avgTemp = this.reportData.floatData.reduce((sum, f) => sum + f.temperature, 0) / this.reportData.floatData.length;
+                const avgSalinity = this.reportData.floatData.reduce((sum, f) => sum + f.salinity, 0) / this.reportData.floatData.length;
+                const bgcCount = this.reportData.floatData.filter(f => f.floatType === 'BGC').length;
+
+                return [
+                    {
+                        title: 'Temperature Distribution Patterns',
+                        description: `Average surface temperature across the Indian Ocean is ${avgTemp.toFixed(1)}°C, showing significant regional variations from equatorial warmth to cooler southern latitudes. Temperature profiles reveal distinct thermocline structures typical of tropical and subtropical waters.`,
+                        dataPoints: this.reportData.floatData.length
+                    },
+                    {
+                        title: 'Salinity Characteristics',
+                        description: `Mean salinity measurements indicate ${avgSalinity.toFixed(2)} PSU, reflecting the typical subtropical salinity maximum with influences from monsoon precipitation and river discharge in northern regions.`,
+                        dataPoints: this.reportData.floatData.length
+                    },
+                    {
+                        title: 'Biogeochemical Monitoring Capacity',
+                        description: `${bgcCount} BGC-ARGO floats (${((bgcCount/this.reportData.floatData.length)*100).toFixed(1)}%) provide enhanced biogeochemical measurements including pH, dissolved oxygen, and nutrient concentrations, enabling comprehensive ecosystem monitoring.`,
+                        dataPoints: bgcCount
+                    }
+                ];
+            }
+
+            getRegionalStats() {
+                const regions = {};
+                this.reportData.floatData.forEach(float => {
+                    if (!regions[float.region]) {
+                        regions[float.region] = {
+                            floats: 0,
+                            totalTemp: 0,
+                            totalSalinity: 0
+                        };
+                    }
+                    regions[float.region].floats++;
+                    regions[float.region].totalTemp += float.temperature;
+                    regions[float.region].totalSalinity += float.salinity;
+                });
+
+                // Calculate averages
+                Object.keys(regions).forEach(region => {
+                    regions[region].avgTemp = regions[region].totalTemp / regions[region].floats;
+                    regions[region].avgSalinity = regions[region].totalSalinity / regions[region].floats;
+                });
+
+                return regions;
+            }
+
+            getParameterIcon(param) {
+                const icons = {
+                    'Temperature': '🌡️',
+                    'Salinity': '🧂',
+                    'Pressure': '⚡',
+                    'Chlorophyll-a': '🌱',
+                    'Dissolved Oxygen': '💨',
+                    'Nitrate': '🧪',
+                    'pH': '⚗️',
+                    'Temperature Heatmap': '🗺️'
+                };
+                return icons[param] || '📊';
+            }
+
+            getParameterDescription(param) {
+                const descriptions = {
+                    'Temperature': 'Ocean temperature profiles and thermal structure',
+                    'Salinity': 'Salt content and water mass characteristics',
+                    'Pressure': 'Depth-pressure relationships and float positioning',
+                    'Chlorophyll-a': 'Primary productivity and phytoplankton biomass',
+                    'Dissolved Oxygen': 'Oxygen concentration and biogeochemical cycles',
+                    'Nitrate': 'Nutrient availability and ocean productivity',
+                    'pH': 'Ocean acidity and carbonate chemistry',
+                    'Temperature Heatmap': 'Spatial temperature distribution mapping'
+                };
+                return descriptions[param] || 'Oceanographic parameter analysis';
+            }
+
+            async downloadAsPDF() {
+                const { jsPDF } = window.jsPdf;
+                
+                try {
+                    // Hide no-print elements
+                    const noPrintElements = document.querySelectorAll('.no-print');
+                    noPrintElements.forEach(el => el.style.display = 'none');
+                    
+                    // Capture the entire report
+                    const reportElement = document.querySelector('main');
+                    const canvas = await html2canvas(reportElement, {
+                        backgroundColor: '#ffffff',
+                        scale: 0.8,
+                        useCORS: true,
+                        logging: false
+                    });
+                    
+                    // Restore no-print elements
+                    noPrintElements.forEach(el => el.style.display = '');
+                    
+                    const pdf = new jsPDF('p', 'mm', 'a4');
+                    const imgData = canvas.toDataURL('image/png');
+                    
+                    const pageWidth = pdf.internal.pageSize.getWidth();
+                    const pageHeight = pdf.internal.pageSize.getHeight();
+                    const imgWidth = pageWidth;
+                    const imgHeight = (canvas.height * imgWidth) / canvas.width;
+                    
+                    let heightLeft = imgHeight;
+                    let position = 0;
+                    
+                    // Add first page
+                    pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight);
+                    heightLeft -= pageHeight;
+                    
+                    // Add additional pages if needed
+                    while (heightLeft >= 0) {
+                        position = heightLeft - imgHeight;
+                        pdf.addPage();
+                        pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight);
+                        heightLeft -= pageHeight;
+                    }
+                    
+                    // Save the PDF
+                    const fileName = `ARGO_Ocean_Report_${new Date().toISOString().split('T')[0]}.pdf`;
+                    pdf.save(fileName);
+                    
+                } catch (error) {
+                    console.error('Error generating PDF:', error);
+                    alert('Error generating PDF. Please try using the print function instead.');
+                }
+            }
+        }
+
+        // Initialize report when page loads
+        document.addEventListener('DOMContentLoaded', () => {
+            new ReportGenerator();
+        });
+    </script>
+</body>
+</html>

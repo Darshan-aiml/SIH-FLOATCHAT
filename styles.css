@@ -1,0 +1,239 @@
+/* Custom styles for ARGO Ocean Assistant */
+
+:root {
+    --ocean-blue: #0ea5e9;
+    --ocean-teal: #14b8a6;
+    --ocean-deep: #0f172a;
+    --ocean-light: #f8fafc;
+    --ocean-mist: #e2e8f0;
+}
+
+* {
+    box-sizing: border-box;
+}
+
+body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+    line-height: 1.6;
+}
+
+.h-screen-minus-header {
+    height: calc(100vh - 88px);
+}
+
+/* Chat Interface Styles */
+#chatMessages {
+    scrollbar-width: thin;
+    scrollbar-color: var(--ocean-mist) transparent;
+}
+
+#chatMessages::-webkit-scrollbar {
+    width: 6px;
+}
+
+#chatMessages::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+#chatMessages::-webkit-scrollbar-thumb {
+    background-color: var(--ocean-mist);
+    border-radius: 3px;
+}
+
+.chat-message {
+    animation: slideIn 0.3s ease-out;
+}
+
+@keyframes slideIn {
+    from {
+        opacity: 0;
+        transform: translateY(10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.user-message {
+    background: linear-gradient(135deg, var(--ocean-blue), var(--ocean-teal));
+    color: white;
+    margin-left: auto;
+    border-radius: 18px 18px 4px 18px;
+}
+
+.bot-message {
+    background: var(--ocean-light);
+    color: var(--ocean-deep);
+    border-radius: 18px 18px 18px 4px;
+}
+
+/* Chart Tab Styles */
+.chart-tab {
+    color: #64748b;
+    background: transparent;
+    border: 1px solid transparent;
+}
+
+.chart-tab:hover {
+    background: #f1f5f9;
+    color: #334155;
+}
+
+.chart-tab.active {
+    background: linear-gradient(135deg, var(--ocean-blue), var(--ocean-teal));
+    color: white;
+    border-color: transparent;
+}
+
+/* Map Styles */
+.leaflet-popup-content-wrapper {
+    border-radius: 12px;
+    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+}
+
+.leaflet-popup-content {
+    margin: 16px;
+    font-family: inherit;
+}
+
+.float-popup {
+    min-width: 200px;
+}
+
+.float-popup h4 {
+    margin: 0 0 8px 0;
+    color: var(--ocean-deep);
+    font-weight: 600;
+}
+
+.float-popup p {
+    margin: 4px 0;
+    color: #64748b;
+    font-size: 14px;
+}
+
+/* Custom Leaflet Marker */
+.custom-marker {
+    background: linear-gradient(135deg, var(--ocean-blue), var(--ocean-teal));
+    border: 3px solid white;
+    border-radius: 50%;
+    box-shadow: 0 4px 12px rgba(14, 165, 233, 0.3);
+}
+
+/* Suggestion buttons */
+.suggestion-btn:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+}
+
+/* Loading states */
+.typing-indicator {
+    display: flex;
+    align-items: center;
+    space-x: 1;
+}
+
+.typing-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background-color: #94a3b8;
+    animation: typing 1.4s infinite ease-in-out;
+}
+
+.typing-dot:nth-child(1) { animation-delay: -0.32s; }
+.typing-dot:nth-child(2) { animation-delay: -0.16s; }
+
+@keyframes typing {
+    0%, 80%, 100% {
+        transform: scale(0.8);
+        opacity: 0.5;
+    }
+    40% {
+        transform: scale(1);
+        opacity: 1;
+    }
+}
+
+/* Smooth transitions */
+.transition-all {
+    transition: all 0.2s ease-in-out;
+}
+
+/* Responsive adjustments */
+@media (max-width: 1024px) {
+    .h-screen-minus-header {
+        height: auto;
+        min-height: calc(100vh - 88px);
+    }
+    
+    #map {
+        height: 300px;
+    }
+    
+    #chartContainer {
+        height: 200px;
+    }
+}
+
+@media (max-width: 768px) {
+    .max-w-7xl {
+        padding-left: 1rem;
+        padding-right: 1rem;
+    }
+    
+    .grid-cols-1 {
+        grid-template-columns: 1fr;
+    }
+    
+    .lg\\:col-span-1,
+    .lg\\:col-span-2 {
+        grid-column: span 1;
+    }
+}
+
+/* Custom scrollbar for webkit browsers */
+::-webkit-scrollbar {
+    width: 8px;
+}
+
+::-webkit-scrollbar-track {
+    background: #f1f5f9;
+    border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb {
+    background: #cbd5e1;
+    border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: #94a3b8;
+}
+
+/* Focus states */
+input:focus,
+button:focus {
+    outline: none;
+    box-shadow: 0 0 0 3px rgba(14, 165, 233, 0.1);
+}
+
+/* Hover effects */
+.hover-lift:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.1);
+}
+
+/* Animation for chart transitions */
+.chart-transition {
+    transition: opacity 0.3s ease-in-out;
+}
+
+.chart-transition.fade-out {
+    opacity: 0;
+}
+
+.chart-transition.fade-in {
+    opacity: 1;
+}
