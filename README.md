@@ -50,7 +50,7 @@ A modern, AI-powered web application for exploring oceanographic data through na
 
 1. **Clone the repository**
 ```bash
-git clone https://github.com/yourusername/argo-ocean-assistant.git
+git clone https://github.com/Darshan-aiml/SIH-FLOATCHAT
 cd argo-ocean-assistant
 ```
 
