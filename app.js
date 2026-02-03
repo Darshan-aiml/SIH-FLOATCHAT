@@ -5,55 +5,189 @@ class ArgoAssistant {
         this.map = null;
         this.currentChart = 'temperature';
         this.selectedFloat = null; // Track selected float for chart variations
-        this.floatData = this.generateMockFloatData();
+        this.floatData = [];
+        this.realData = {}; // Store parsed NetCDF data
         this.chatHistory = [];
+        this.dataLoaded = false;
 
         this.init();
     }
 
     init() {
+        // Start with mock data so UI loads immediately
+        this.floatData = this.generateMockFloatData();
+        
+        // Initialize UI components
         this.initializeMap();
         this.initializeCharts();
         this.setupEventListeners();
         this.displayInitialChart();
+        
+        // Load real NetCDF data in background and update when ready
+        this.loadNetCDFFiles().then(() => {
+            this.updateMapMarkers();
+            this.displayChart(this.currentChart);
+        }).catch(err => {
+            console.error('NetCDF loading failed:', err);
+        });
     }
 
-    // Mock data generation for prototype
+    // Load and parse NetCDF files
+    async loadNetCDFFiles() {
+        const ncFiles = [
+            'data/1901766_prof.nc',
+            'data/1902674_prof.nc',
+            'data/3902658_prof.nc',
+            'data/7902242_prof.nc',
+            'data/7902312_prof.nc'
+        ];
+
+        const newFloatData = [];
+        
+        for (const filePath of ncFiles) {
+            try {
+                const response = await fetch(filePath);
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                const arrayBuffer = await response.arrayBuffer();
+                
+                // Check if netcdfjs is available
+                if (typeof netcdfjs === 'undefined') {
+                    throw new Error('netcdfjs library not loaded');
+                }
+                
+                const data = new netcdfjs.NetCDFReader(arrayBuffer);
+                
+                // Extract float ID from filename
+                const floatId = filePath.match(/(\d+)_prof\.nc/)[1];
+                
+                // Parse the NetCDF data structure
+                const parsedData = this.parseNetCDFData(data, floatId);
+                this.realData[floatId] = parsedData;
+                
+                // Create float entries
+                if (parsedData.profiles && parsedData.profiles.length > 0) {
+                    parsedData.profiles.forEach((profile, idx) => {
+                        newFloatData.push({
+                            id: `ARGO_${floatId}_${idx}`,
+                            floatId: floatId,
+                            profileIndex: idx,
+                            lat: profile.latitude || this.getRandomLatitude(),
+                            lon: profile.longitude || this.getRandomLongitude(),
+                            lastProfile: profile.date || new Date(),
+                            temperature: profile.temperature || [],
+                            salinity: profile.salinity || [],
+                            pressure: profile.pressure || [],
+                            depth: profile.depth || [],
+                            status: 'active',
+                            floatType: 'Core',
+                            region: this.getRegionName(profile.latitude, profile.longitude),
+                            profileVariation: Math.random()
+                        });
+                    });
+                }
+            } catch (error) {
+                console.error(`Error loading ${filePath}:`, error);
+            }
+        }
+        
+        if (newFloatData.length > 0) {
+            this.dataLoaded = true;
+            this.floatData = newFloatData;
+        }
+    }
+
+    // Parse NetCDF data structure
+    parseNetCDFData(ncData, floatId) {
+        const result = { floatId: floatId, profiles: [] };
+
+        try {
+            const nProfiles = ncData.dimensions.find(d => d.name === 'N_PROF')?.size || 1;
+            const nLevels = ncData.dimensions.find(d => d.name === 'N_LEVELS')?.size || 1000;
+
+            const latitude = ncData.getDataVariable('LATITUDE');
+            const longitude = ncData.getDataVariable('LONGITUDE');
+            const juld = ncData.getDataVariable('JULD');
+            const temp = ncData.getDataVariable('TEMP');
+            const psal = ncData.getDataVariable('PSAL');
+            const pres = ncData.getDataVariable('PRES');
+
+
+            for (let i = 0; i < nProfiles; i++) {
+                const profile = {
+                    latitude: latitude?.[i] || null,
+                    longitude: longitude?.[i] || null,
+                    date: juld ? this.julianToDate(juld[i]) : new Date(),
+                    temperature: [],
+                    salinity: [],
+                    pressure: [],
+                    depth: []
+                };
+
+                for (let j = 0; j < nLevels; j++) {
+                    const idx = i * nLevels + j;
+                    
+                    const tempVal = temp?.[idx];
+                    const psalVal = psal?.[idx];
+                    const presVal = pres?.[idx];
+
+                    if (tempVal && tempVal < 99999 && !isNaN(tempVal)) {
+                        profile.temperature.push(tempVal);
+                        profile.salinity.push(psalVal && psalVal < 99999 ? psalVal : 35);
+                        profile.pressure.push(presVal && presVal < 99999 ? presVal : j * 2);
+                        profile.depth.push(presVal && presVal < 99999 ? presVal : j * 2);
+                    }
+                }
+
+                if (profile.temperature.length > 0) {
+                    result.profiles.push(profile);
+                }
+            }
+
+        } catch (error) {
+            console.error('Error parsing NetCDF data:', error);
+        }
+
+        return result;
+    }
+
+    julianToDate(julian) {
+        if (!julian || julian > 99999) return new Date();
+        return new Date(new Date('1950-01-01T00:00:00Z').getTime() + julian * 86400000);
+    }
+
+    getRandomLatitude() {
+        return -40 + Math.random() * 65;
+    }
+
+    getRandomLongitude() {
+        return 30 + Math.random() * 125;
+    }
+
     generateMockFloatData() {
         const floats = [];
-
-        // Define specific ocean regions in Indian Ocean to avoid land masses
         const oceanRegions = [
-            // Arabian Sea
             { latMin: 10, latMax: 25, lonMin: 55, lonMax: 75 },
-            // Bay of Bengal
             { latMin: 5, latMax: 22, lonMin: 80, lonMax: 95 },
-            // Central Indian Ocean
             { latMin: -20, latMax: 5, lonMin: 60, lonMax: 90 },
-            // Southern Indian Ocean
             { latMin: -40, latMax: -20, lonMin: 30, lonMax: 110 },
-            // Western Indian Ocean
             { latMin: -30, latMax: 10, lonMin: 40, lonMax: 60 },
-            // Eastern Indian Ocean
             { latMin: -35, latMax: -5, lonMin: 90, lonMax: 115 }
         ];
 
-        // Generate floats in each ocean region
         oceanRegions.forEach((region, regionIndex) => {
             const floatsPerRegion = Math.floor(50 / oceanRegions.length) + (regionIndex < 50 % oceanRegions.length ? 1 : 0);
 
             for (let i = 0; i < floatsPerRegion; i++) {
-                let lat, lon;
-                let attempts = 0;
+                let lat, lon, attempts = 0;
 
-                // Generate coordinates and check if they're in deep ocean
                 do {
                     lat = Math.random() * (region.latMax - region.latMin) + region.latMin;
                     lon = Math.random() * (region.lonMax - region.lonMin) + region.lonMin;
                     attempts++;
                 } while (!this.isDeepOcean(lat, lon) && attempts < 20);
 
-                // If we couldn't find a good spot after 20 attempts, use a known good location
                 if (attempts >= 20) {
                     const knownGoodLocations = this.getKnownOceanLocations();
                     const randomLocation = knownGoodLocations[Math.floor(Math.random() * knownGoodLocations.length)];
@@ -61,25 +195,22 @@ class ArgoAssistant {
                     lon = randomLocation.lon;
                 }
 
-                const floatId = `ARGO_${4900000 + floats.length}`;
                 floats.push({
-                    id: floatId,
+                    id: `ARGO_${4900000 + floats.length}`,
                     lat: lat,
                     lon: lon,
-                    lastProfile: new Date(Date.now() - Math.random() * 30 * 24 * 60 * 60 * 1000),
+                    lastProfile: new Date(Date.now() - Math.random() * 2592000000),
                     temperature: this.getRealisticTemperature(lat),
                     salinity: this.getRealisticSalinity(lat),
-                    depth: 1500 + Math.random() * 500, // ARGO floats typically go to 2000m
+                    depth: 1500 + Math.random() * 500,
                     status: Math.random() > 0.15 ? 'active' : 'inactive',
-                    // Additional oceanographic parameters
                     chlorophyll: this.getRealisticChlorophyll(lat),
                     dissolvedOxygen: this.getRealisticOxygen(lat),
                     nitrate: this.getRealisticNitrate(lat),
                     ph: this.getRealisticPH(lat),
-                    // Float-specific characteristics for chart variation
-                    floatType: Math.random() > 0.7 ? 'BGC' : 'Core', // 30% BGC floats
+                    floatType: Math.random() > 0.7 ? 'BGC' : 'Core',
                     region: this.getRegionName(lat, lon),
-                    profileVariation: Math.random() // Used for creating unique profiles
+                    profileVariation: Math.random()
                 });
             }
         });
@@ -87,10 +218,7 @@ class ArgoAssistant {
         return floats;
     }
 
-    // Check if coordinates are in deep ocean (simplified land avoidance)
     isDeepOcean(lat, lon) {
-        // Avoid major land masses and shallow areas
-
         // Avoid Indian subcontinent
         if (lat > 8 && lat < 37 && lon > 68 && lon < 97) return false;
 
@@ -124,87 +252,45 @@ class ArgoAssistant {
         return true;
     }
 
-    // Get known good ocean locations as fallback
     getKnownOceanLocations() {
         return [
-            // Central Arabian Sea
-            { lat: 15.5, lon: 65.0 },
-            { lat: 18.2, lon: 67.5 },
-            { lat: 20.1, lon: 63.8 },
-
-            // Central Bay of Bengal
-            { lat: 12.5, lon: 87.0 },
-            { lat: 15.8, lon: 89.2 },
-            { lat: 18.0, lon: 85.5 },
-
-            // Central Indian Ocean
-            { lat: -5.0, lon: 75.0 },
-            { lat: -8.5, lon: 82.0 },
-            { lat: -12.0, lon: 78.5 },
-
-            // Southern Indian Ocean
-            { lat: -25.0, lon: 70.0 },
-            { lat: -30.5, lon: 85.0 },
-            { lat: -35.2, lon: 95.0 },
-
-            // Western Indian Ocean
-            { lat: -15.0, lon: 55.0 },
-            { lat: -20.5, lon: 58.0 },
-            { lat: -10.0, lon: 52.0 },
-
-            // Eastern Indian Ocean
-            { lat: -25.0, lon: 105.0 },
-            { lat: -30.0, lon: 100.0 },
-            { lat: -20.0, lon: 108.0 }
+            { lat: 15.5, lon: 65.0 }, { lat: 18.2, lon: 67.5 }, { lat: 20.1, lon: 63.8 },
+            { lat: 12.5, lon: 87.0 }, { lat: 15.8, lon: 89.2 }, { lat: 18.0, lon: 85.5 },
+            { lat: -5.0, lon: 75.0 }, { lat: -8.5, lon: 82.0 }, { lat: -12.0, lon: 78.5 },
+            { lat: -25.0, lon: 70.0 }, { lat: -30.5, lon: 85.0 }, { lat: -35.2, lon: 95.0 },
+            { lat: -15.0, lon: 55.0 }, { lat: -20.5, lon: 58.0 }, { lat: -10.0, lon: 52.0 },
+            { lat: -25.0, lon: 105.0 }, { lat: -30.0, lon: 100.0 }, { lat: -20.0, lon: 108.0 }
         ];
     }
 
-    // Generate realistic temperature based on latitude
     getRealisticTemperature(lat) {
-        // Warmer near equator, cooler towards poles
-        const baseTemp = 28 - Math.abs(lat) * 0.4;
-        return Math.max(2, baseTemp + (Math.random() - 0.5) * 4);
+        return Math.max(2, 28 - Math.abs(lat) * 0.4 + (Math.random() - 0.5) * 4);
     }
 
-    // Generate realistic salinity based on latitude
     getRealisticSalinity(lat) {
-        // Higher salinity in subtropical regions, lower near equator and poles
-        const baseSalinity = 34.5 + Math.abs(lat - 15) * 0.02;
-        return Math.max(33, Math.min(37, baseSalinity + (Math.random() - 0.5) * 0.5));
+        return Math.max(33, Math.min(37, 34.5 + Math.abs(lat - 15) * 0.02 + (Math.random() - 0.5) * 0.5));
     }
 
-    // Generate realistic chlorophyll based on latitude and season
     getRealisticChlorophyll(lat) {
-        // Higher chlorophyll in coastal upwelling areas and higher latitudes
-        const baseChlorophyll = Math.abs(lat) > 20 ? 0.8 : 0.3;
-        const seasonal = Math.sin(Date.now() / (365 * 24 * 60 * 60 * 1000) * 2 * Math.PI) * 0.2;
-        return Math.max(0.1, baseChlorophyll + seasonal + Math.random() * 0.4);
+        const base = Math.abs(lat) > 20 ? 0.8 : 0.3;
+        const seasonal = Math.sin(Date.now() / 31536000000 * 2 * Math.PI) * 0.2;
+        return Math.max(0.1, base + seasonal + Math.random() * 0.4);
     }
 
-    // Generate realistic dissolved oxygen based on latitude and temperature
     getRealisticOxygen(lat) {
-        // Colder water holds more oxygen, tropical waters have oxygen minimum zones
         const temp = this.getRealisticTemperature(lat);
-        const baseOxygen = 8.5 - (temp - 2) * 0.15; // Inverse relationship with temperature
-        return Math.max(2, Math.min(9, baseOxygen + (Math.random() - 0.5) * 1.5));
+        return Math.max(2, Math.min(9, 8.5 - (temp - 2) * 0.15 + (Math.random() - 0.5) * 1.5));
     }
 
-    // Generate realistic nitrate based on latitude and depth
     getRealisticNitrate(lat) {
-        // Higher nitrate in upwelling regions and deeper waters
         const upwelling = Math.abs(lat) > 15 ? 1.5 : 0.5;
-        const baseNitrate = upwelling + Math.random() * 2;
-        return Math.max(0, Math.min(45, baseNitrate));
+        return Math.max(0, Math.min(45, upwelling + Math.random() * 2));
     }
 
-    // Generate realistic pH based on latitude and CO2 absorption
     getRealisticPH(lat) {
-        // Slightly lower pH in warmer tropical waters due to CO2 absorption
-        const basePH = 8.1 - Math.abs(lat) * 0.002;
-        return Math.max(7.8, Math.min(8.3, basePH + (Math.random() - 0.5) * 0.1));
+        return Math.max(7.8, Math.min(8.3, 8.1 - Math.abs(lat) * 0.002 + (Math.random() - 0.5) * 0.1));
     }
 
-    // Get region name based on coordinates
     getRegionName(lat, lon) {
         if (lat > 10 && lon > 55 && lon < 75) return 'Arabian Sea';
         if (lat > 5 && lat < 22 && lon > 80 && lon < 95) return 'Bay of Bengal';
@@ -216,17 +302,14 @@ class ArgoAssistant {
     }
 
     initializeMap() {
-        // Initialize Leaflet map centered on Indian Ocean
         this.map = L.map('map').setView([-10, 70], 4);
 
-        // Add tile layer with ocean-friendly styling
         L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
             attribution: '© OpenStreetMap contributors © CARTO',
             subdomains: 'abcd',
             maxZoom: 19
         }).addTo(this.map);
 
-        // Add ARGO float markers
         this.addFloatMarkers();
     }
 
@@ -243,35 +326,32 @@ class ArgoAssistant {
                 fillOpacity: 0.8
             }).addTo(this.map);
 
-            // Create popup content
+            const surfaceTemp = Array.isArray(float.temperature) ? (float.temperature[0] || 25) : (float.temperature || 25);
+            const surfaceSalinity = Array.isArray(float.salinity) ? (float.salinity[0] || 35) : (float.salinity || 35);
+            const maxDepth = Array.isArray(float.depth) && float.depth.length > 0 ? Math.max(...float.depth) : (float.depth || 2000);
+
             const popupContent = `
                 <div class="float-popup">
                     <h4>${float.id}</h4>
                     <p><strong>Status:</strong> ${float.status}</p>
+                    <p><strong>Type:</strong> ${float.floatType}</p>
+                    <p><strong>Region:</strong> ${float.region}</p>
                     <p><strong>Last Profile:</strong> ${float.lastProfile.toLocaleDateString()}</p>
-                    <p><strong>Temperature:</strong> ${float.temperature.toFixed(1)}°C</p>
-                    <p><strong>Salinity:</strong> ${float.salinity.toFixed(2)} PSU</p>
-                    <p><strong>Chlorophyll:</strong> ${float.chlorophyll.toFixed(2)} mg/m³</p>
-                    <p><strong>Dissolved O₂:</strong> ${float.dissolvedOxygen.toFixed(1)} mg/L</p>
-                    <p><strong>Nitrate:</strong> ${float.nitrate.toFixed(1)} μmol/L</p>
-                    <p><strong>pH:</strong> ${float.ph.toFixed(2)}</p>
-                    <p><strong>Max Depth:</strong> ${float.depth.toFixed(0)}m</p>
+                    <p><strong>Surface Temp:</strong> ${surfaceTemp.toFixed(1)}°C</p>
+                    <p><strong>Surface Salinity:</strong> ${surfaceSalinity.toFixed(2)} PSU</p>
+                    <p><strong>Max Depth:</strong> ${maxDepth.toFixed(0)}m</p>
+                    ${Array.isArray(float.temperature) ? `<p><strong>Measurements:</strong> ${float.temperature.length} levels</p>` : ''}
                 </div>
             `;
 
             marker.bindPopup(popupContent);
 
-            // Add click event to select float for detailed charts
             marker.on('click', () => {
                 this.selectedFloat = float;
-                this.displayChart(this.currentChart); // Refresh current chart with selected float data
-
-                // Update popup to show it's selected
-                const selectedPopup = popupContent.replace('<h4>', '<h4>🎯 SELECTED: ');
-                marker.setPopupContent(selectedPopup);
+                this.displayChart(this.currentChart);
+                marker.setPopupContent(popupContent.replace('<h4>', '<h4>🎯 SELECTED: '));
             });
 
-            // Add hover effects
             marker.on('mouseover', function () {
                 this.setStyle({
                     radius: 8,
@@ -288,8 +368,16 @@ class ArgoAssistant {
         });
     }
 
+    updateMapMarkers() {
+        this.map.eachLayer((layer) => {
+            if (layer instanceof L.CircleMarker) {
+                this.map.removeLayer(layer);
+            }
+        });
+        this.addFloatMarkers();
+    }
+
     initializeCharts() {
-        // Setup chart tab switching
         document.querySelectorAll('.chart-tab').forEach(tab => {
             tab.addEventListener('click', (e) => {
                 const chartType = e.target.dataset.chart;
@@ -299,7 +387,6 @@ class ArgoAssistant {
     }
 
     switchChart(chartType) {
-        // Update active tab
         document.querySelectorAll('.chart-tab').forEach(tab => {
             tab.classList.remove('active');
         });
@@ -350,30 +437,33 @@ class ArgoAssistant {
         // Use selected float or random float for variation
         const float = this.selectedFloat || this.floatData[Math.floor(Math.random() * this.floatData.length)];
 
-        const depths = [];
-        const temperatures = [];
+        let depths = [];
+        let temperatures = [];
 
-        // Create variation based on float characteristics
-        const surfaceTemp = float.temperature;
-        const thermoclineDepth = 200 + (float.profileVariation - 0.5) * 100; // Vary thermocline depth
-        const thermoclineStrength = 0.8 + float.profileVariation * 0.4; // Vary thermocline strength
+        // Check if we have real profile data
+        if (Array.isArray(float.temperature) && Array.isArray(float.depth) && 
+            float.temperature.length > 0 && float.depth.length > 0) {
+            depths = float.depth.map(d => -d);
+            temperatures = float.temperature;
+        } else {
+            // Fallback to generated profile if no real data
+            const surfaceTemp = typeof float.temperature === 'number' ? float.temperature : 25;
+            const thermoclineDepth = 200 + (float.profileVariation - 0.5) * 100;
+            const thermoclineStrength = 0.8 + float.profileVariation * 0.4;
 
-        for (let depth = 0; depth <= 2000; depth += 50) {
-            depths.push(-depth);
+            for (let depth = 0; depth <= 2000; depth += 50) {
+                depths.push(-depth);
 
-            // Create unique temperature profile for each float
-            let temp;
-            if (depth < thermoclineDepth) {
-                // Surface mixed layer
-                temp = surfaceTemp - (depth / thermoclineDepth) * (surfaceTemp * 0.3) * thermoclineStrength;
-            } else {
-                // Deep water with exponential decay
-                temp = surfaceTemp * 0.7 * Math.exp(-(depth - thermoclineDepth) / 800) + 2;
+                let temp;
+                if (depth < thermoclineDepth) {
+                    temp = surfaceTemp - (depth / thermoclineDepth) * (surfaceTemp * 0.3) * thermoclineStrength;
+                } else {
+                    temp = surfaceTemp * 0.7 * Math.exp(-(depth - thermoclineDepth) / 800) + 2;
+                }
+
+                temp += (float.profileVariation - 0.5) * 2;
+                temperatures.push(Math.max(1, temp));
             }
-
-            // Add some noise based on float's profile variation
-            temp += (float.profileVariation - 0.5) * 2;
-            temperatures.push(Math.max(1, temp));
         }
 
         const trace = {
@@ -392,9 +482,12 @@ class ArgoAssistant {
             }
         };
 
+        const dataSource = Array.isArray(float.temperature) && float.temperature.length > 0 ? 
+            '(Real NetCDF Data)' : '(Generated Data)';
+
         const layout = {
             title: {
-                text: `Temperature vs Depth Profile - ${float.region}`,
+                text: `Temperature vs Depth Profile - ${float.region} ${dataSource}`,
                 font: { size: 16, color: '#334155' }
             },
             xaxis: {
@@ -409,7 +502,7 @@ class ArgoAssistant {
             paper_bgcolor: 'rgba(0,0,0,0)',
             margin: { t: 50, r: 50, b: 50, l: 60 },
             annotations: [{
-                text: `Float: ${float.id} | Status: ${float.status}`,
+                text: `Float: ${float.id} | Status: ${float.status} | Measurements: ${temperatures.length}`,
                 showarrow: false,
                 x: 0.02,
                 y: 0.98,
@@ -423,66 +516,92 @@ class ArgoAssistant {
     }
 
     displaySalinityChart(container) {
-        // Generate mock salinity time series
-        const dates = [];
-        const salinity = [];
-        const now = new Date();
+        const float = this.selectedFloat || this.floatData[Math.floor(Math.random() * this.floatData.length)];
+        
+        let depths = [];
+        let salinity = [];
 
-        for (let i = 180; i >= 0; i--) {
-            const date = new Date(now.getTime() - i * 24 * 60 * 60 * 1000);
-            dates.push(date.toISOString().split('T')[0]);
-            // Realistic salinity variation
-            const sal = 34.5 + 0.5 * Math.sin(i / 30) + Math.random() * 0.2;
-            salinity.push(sal);
+        // Check if we have real profile data
+        if (Array.isArray(float.salinity) && Array.isArray(float.depth) && 
+            float.salinity.length > 0 && float.depth.length > 0) {
+            // Use real data - plot as depth profile
+            depths = float.depth.map(d => -d);
+            salinity = float.salinity;
+        } else {
+            // Fallback to generated profile
+            for (let depth = 0; depth <= 2000; depth += 50) {
+                depths.push(-depth);
+                const sal = 34.5 + 0.5 * Math.sin(depth / 300) + Math.random() * 0.2;
+                salinity.push(sal);
+            }
         }
 
         const trace = {
-            x: dates,
-            y: salinity,
+            x: salinity,
+            y: depths,
             type: 'scatter',
             mode: 'lines+markers',
-            name: 'Salinity Over Time',
+            name: `Salinity Profile - ${float.id}`,
             line: {
                 color: '#14b8a6',
-                width: 2
+                width: 3
             },
             marker: {
                 color: '#0ea5e9',
-                size: 3
+                size: 4
             }
         };
 
+        const dataSource = Array.isArray(float.salinity) && float.salinity.length > 0 ? 
+            '(Real NetCDF Data)' : '(Generated Data)';
+
         const layout = {
             title: {
-                text: 'Salinity Trends (Last 6 Months)',
+                text: `Salinity vs Depth Profile ${dataSource}`,
                 font: { size: 16, color: '#334155' }
             },
             xaxis: {
-                title: 'Date',
+                title: 'Salinity (PSU)',
                 gridcolor: '#e2e8f0'
             },
             yaxis: {
-                title: 'Salinity (PSU)',
+                title: 'Depth (m)',
                 gridcolor: '#e2e8f0'
             },
             plot_bgcolor: 'rgba(0,0,0,0)',
             paper_bgcolor: 'rgba(0,0,0,0)',
-            margin: { t: 50, r: 50, b: 50, l: 60 }
+            margin: { t: 50, r: 50, b: 50, l: 60 },
+            annotations: [{
+                text: `Float: ${float.id} | Measurements: ${salinity.length}`,
+                showarrow: false,
+                x: 0.02,
+                y: 0.98,
+                xref: 'paper',
+                yref: 'paper',
+                font: { size: 12, color: '#64748b' }
+            }]
         };
 
         Plotly.newPlot(container, [trace], layout, { responsive: true });
     }
 
     displayPressureChart(container) {
-        // Generate mock pressure vs depth data
-        const depths = [];
-        const pressures = [];
+        const float = this.selectedFloat || this.floatData[Math.floor(Math.random() * this.floatData.length)];
+        
+        let depths = [];
+        let pressures = [];
 
-        for (let depth = 0; depth <= 2000; depth += 100) {
-            depths.push(depth);
-            // Pressure increases ~1 bar per 10m depth
-            const pressure = depth / 10 + Math.random() * 2;
-            pressures.push(pressure);
+        // Check if we have real profile data
+        if (Array.isArray(float.pressure) && float.pressure.length > 0) {
+            pressures = float.pressure;
+            depths = float.pressure.map(p => p * 10);
+        } else {
+            // Fallback to generated data
+            for (let depth = 0; depth <= 2000; depth += 100) {
+                depths.push(depth);
+                const pressure = depth / 10 + Math.random() * 2;
+                pressures.push(pressure);
+            }
         }
 
         const trace = {
@@ -503,7 +622,7 @@ class ArgoAssistant {
 
         const layout = {
             title: {
-                text: 'Pressure vs Depth Relationship',
+                text: `Pressure vs Depth - ${float.id} ${Array.isArray(float.pressure) && float.pressure.length > 0 ? '(Real Data)' : '(Generated)'}`,
                 font: { size: 16, color: '#334155' }
             },
             xaxis: {
@@ -517,7 +636,15 @@ class ArgoAssistant {
             },
             plot_bgcolor: 'rgba(0,0,0,0)',
             paper_bgcolor: 'rgba(0,0,0,0)',
-            margin: { t: 50, r: 50, b: 50, l: 60 }
+            margin: { t: 50, r: 50, b: 50, l: 60 },
+            annotations: [{text: `Measurements: ${pressures.length}`,
+                showarrow: false,
+                x: 0.02,
+                y: 0.98,
+                xref: 'paper',
+                yref: 'paper',
+                font: { size: 12, color: '#64748b' }
+            }]
         };
 
         Plotly.newPlot(container, [trace], layout, { responsive: true });
@@ -1077,72 +1204,118 @@ class ArgoAssistant {
     generateResponse(query) {
         const lowerQuery = query.toLowerCase();
 
-        // Simple keyword-based response generation
+        // Get statistics from real data
+        const stats = this.getDataStatistics();
+
+        // Simple keyword-based response generation with real data
         if (lowerQuery.includes('temperature') && lowerQuery.includes('heatmap')) {
             return {
-                text: "Here's the temperature heatmap for the Indian Ocean based on our active ARGO float network. The color scale shows temperature variations from cold (blue) to warm (red). Surface temperatures range from 24-29°C with clear regional patterns.",
+                text: `Here's the temperature heatmap for the Indian Ocean based on ${stats.activeFloats} active ARGO floats. ${this.dataLoaded ? `Real data from ${stats.totalProfiles} profiles shows` : 'Data shows'} surface temperatures ranging from ${stats.tempRange.min.toFixed(1)}°C to ${stats.tempRange.max.toFixed(1)}°C with clear regional patterns.`,
                 chartType: 'heatmap'
             };
         } else if (lowerQuery.includes('temperature')) {
             return {
-                text: "Based on our ARGO float network data, Indian Ocean temperatures show seasonal variation between 24-29°C at the surface, with deeper waters maintaining 2-4°C. The temperature profile shows a distinct thermocline around 200-500m depth.",
+                text: `Based on our ARGO float network data (${stats.activeFloats} floats, ${stats.totalProfiles} profiles), ocean temperatures show seasonal variation. ${this.dataLoaded ? 'Real measurements indicate' : 'Data shows'} surface temperatures of ${stats.tempRange.min.toFixed(1)}-${stats.tempRange.max.toFixed(1)}°C, with deeper waters maintaining 2-4°C. The temperature profile shows a distinct thermocline.`,
                 chartType: 'temperature'
             };
         } else if (lowerQuery.includes('chlorophyll')) {
             return {
-                text: "Chlorophyll-a concentrations show typical oceanic patterns with a subsurface maximum around 75m depth. Values range from 0.1-2.0 mg/m³, with higher concentrations in productive regions and upwelling areas.",
+                text: `Chlorophyll-a concentrations from our ${stats.activeFloats} floats show typical oceanic patterns with a subsurface maximum around 75m depth. Values range from 0.1-2.0 mg/m³, with higher concentrations in productive regions and upwelling areas.`,
                 chartType: 'chlorophyll'
             };
         } else if (lowerQuery.includes('oxygen') || lowerQuery.includes('dissolved')) {
             return {
-                text: "Dissolved oxygen profiles reveal the characteristic oxygen minimum zone between 500-800m depth. Surface waters are well-oxygenated (~7 mg/L), while deep waters show gradual recovery below 1000m.",
+                text: `Dissolved oxygen profiles from ${stats.totalProfiles} measurements reveal the characteristic oxygen minimum zone between 500-800m depth. Surface waters are well-oxygenated (~7 mg/L), while deep waters show gradual recovery below 1000m.`,
                 chartType: 'oxygen'
             };
         } else if (lowerQuery.includes('nitrate')) {
             const hasData = Math.random() > 0.3;
             if (!hasData) {
                 return {
-                    text: "No nitrate data is available for this region. Nitrate sensors are only deployed on specialized BGC-ARGO floats, which have limited coverage in the Indian Ocean.",
+                    text: `No nitrate data is available for this region. Nitrate sensors are only deployed on specialized BGC-ARGO floats, which have limited coverage in the Indian Ocean.`,
                     chartType: 'nitrate'
                 };
             }
             return {
-                text: "Nitrate concentrations increase with depth, showing typical nutrient profiles. Surface waters are nutrient-depleted (<5 μmol/L) while deep waters are nutrient-rich (>30 μmol/L).",
+                text: `Nitrate concentrations from BGC-ARGO floats increase with depth, showing typical nutrient profiles. Surface waters are nutrient-depleted (<5 μmol/L) while deep waters are nutrient-rich (>30 μmol/L).`,
                 chartType: 'nitrate'
             };
         } else if (lowerQuery.includes('ph')) {
             const hasData = Math.random() > 0.4;
             if (!hasData) {
                 return {
-                    text: "No pH data is available for this region. pH measurements require specialized biogeochemical sensors that are only available on BGC-ARGO floats with limited deployment.",
+                    text: `No pH data is available for this region. pH measurements require specialized biogeochemical sensors that are only available on BGC-ARGO floats with limited deployment.`,
                     chartType: 'ph'
                 };
             }
             return {
-                text: "Ocean pH measurements show values around 8.0-8.2, with slight seasonal variations and a subtle acidification trend. These measurements are crucial for understanding ocean chemistry changes.",
+                text: `Ocean pH measurements from BGC-ARGO floats show values around 8.0-8.2, with slight seasonal variations. These measurements are crucial for understanding ocean chemistry changes and acidification trends.`,
                 chartType: 'ph'
             };
         } else if (lowerQuery.includes('salinity')) {
             return {
-                text: "Salinity measurements from our ARGO floats indicate typical Indian Ocean values of 34.5-35.5 PSU. Recent data shows stable salinity patterns with slight seasonal variations, particularly in monsoon-affected regions.",
+                text: `Salinity measurements from ${stats.activeFloats} ARGO floats indicate ${this.dataLoaded ? 'real values of' : 'typical Indian Ocean values of'} ${stats.salinityRange.min.toFixed(2)}-${stats.salinityRange.max.toFixed(2)} PSU. ${this.dataLoaded ? 'Current data shows' : 'Data shows'} stable salinity patterns with slight seasonal variations, particularly in monsoon-affected regions.`,
                 chartType: 'salinity'
             };
         } else if (lowerQuery.includes('float') || lowerQuery.includes('location')) {
             return {
-                text: "Our ARGO network currently has 47 active floats deployed across the Indian Ocean. They're strategically positioned to monitor key oceanographic features including the Agulhas Current, monsoon systems, and equatorial dynamics.",
+                text: `Our ARGO network currently has ${stats.activeFloats} active floats deployed across the Indian Ocean with ${stats.totalProfiles} total profiles. ${this.dataLoaded ? 'Real-time data from floats ' + Object.keys(this.realData).join(', ') + ' are' : 'They are'} strategically positioned to monitor key oceanographic features.`,
                 chartType: null
             };
         } else if (lowerQuery.includes('pressure') || lowerQuery.includes('depth')) {
             return {
-                text: "Pressure measurements show the expected linear relationship with depth (~1 bar per 10m). Our floats regularly profile to 2000m depth, providing comprehensive water column data for climate research.",
+                text: `Pressure measurements from ${stats.totalProfiles} profiles show the expected linear relationship with depth (~1 bar per 10m). Our floats regularly profile to 2000m depth, providing comprehensive water column data for climate research.`,
                 chartType: 'pressure'
+            };
+        } else if (lowerQuery.includes('data') || lowerQuery.includes('profile') || lowerQuery.includes('measurement')) {
+            return {
+                text: `${this.dataLoaded ? 'Currently analyzing real NetCDF data from ' + Object.keys(this.realData).length + ' ARGO floats' : 'Using ARGO float data'} with ${stats.totalProfiles} vertical profiles. Each profile contains temperature, salinity, and pressure measurements from surface to ~2000m depth. ${this.dataLoaded ? 'Data files: ' + Object.keys(this.realData).map(id => id).join(', ') : ''}`,
+                chartType: null
             };
         } else {
             return {
-                text: "I can help you explore ARGO oceanographic data including temperature profiles, salinity measurements, chlorophyll levels, dissolved oxygen, nitrate, pH, and interactive heatmaps. What specific parameter would you like to investigate?",
+                text: `I can help you explore ARGO oceanographic data${this.dataLoaded ? ' from real NetCDF files (' + Object.keys(this.realData).length + ' floats loaded)' : ''}. Available parameters: temperature profiles, salinity measurements, chlorophyll levels, dissolved oxygen, nitrate, pH, and interactive heatmaps. What would you like to investigate?`,
                 chartType: null
             };
         }
+    }
+
+    // Calculate statistics from loaded data
+    getDataStatistics() {
+        const stats = {
+            activeFloats: this.floatData.filter(f => f.status === 'active').length,
+            totalProfiles: this.floatData.length,
+            tempRange: { min: Infinity, max: -Infinity },
+            salinityRange: { min: Infinity, max: -Infinity }
+        };
+
+        this.floatData.forEach(float => {
+            if (Array.isArray(float.temperature) && float.temperature.length > 0) {
+                const maxTemp = Math.max(...float.temperature);
+                const minTemp = Math.min(...float.temperature);
+                if (maxTemp < 100) stats.tempRange.max = Math.max(stats.tempRange.max, maxTemp);
+                if (minTemp > -5) stats.tempRange.min = Math.min(stats.tempRange.min, minTemp);
+            } else if (typeof float.temperature === 'number') {
+                stats.tempRange.max = Math.max(stats.tempRange.max, float.temperature);
+                stats.tempRange.min = Math.min(stats.tempRange.min, float.temperature);
+            }
+
+            if (Array.isArray(float.salinity) && float.salinity.length > 0) {
+                const maxSal = Math.max(...float.salinity);
+                const minSal = Math.min(...float.salinity);
+                if (maxSal < 50) stats.salinityRange.max = Math.max(stats.salinityRange.max, maxSal);
+                if (minSal > 20) stats.salinityRange.min = Math.min(stats.salinityRange.min, minSal);
+            } else if (typeof float.salinity === 'number') {
+                stats.salinityRange.max = Math.max(stats.salinityRange.max, float.salinity);
+                stats.salinityRange.min = Math.min(stats.salinityRange.min, float.salinity);
+            }
+        });
+
+        // Set defaults if no valid data
+        if (stats.tempRange.min === Infinity) stats.tempRange = { min: 2, max: 29 };
+        if (stats.salinityRange.min === Infinity) stats.salinityRange = { min: 34.5, max: 35.5 };
+
+        return stats;
     }
 
     generateReport() {
@@ -1175,8 +1348,6 @@ class ArgoAssistant {
             loadingOverlay.classList.remove('flex');
         }, 1000);
     }
-
-
 
 
 }
